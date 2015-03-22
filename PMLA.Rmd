@@ -1,0 +1,74 @@
+---
+title: "Predictions of barbell lifts"
+author: "CK Lim"
+date: "Monday, March 16, 2015"
+output: html_document
+---
+
+### Acknowledgement
+#### I would like to thank http://groupware.les.inf.puc-rio.br/har for the use of its training data and test data, which are used to predict the quality of barbell lifts
+
+
+### Executive Summary
+#### It is now possible to use wearables to collect a large amount of data about personal activity. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this paper, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+
+### Loading the data
+```{r, echo=TRUE}
+PmlTrain <- read.csv("pml-training.csv", header=T)
+PmlTest <- read.csv("pml-testing.csv", header=T)
+dim(PmlTrain); dim(PmlTest)
+```
+
+
+### Preparing and Cleaning the data
+#### The paper uses accelerometers on the belt, forearm, arm and dumbell as predictors; the outcome is classe. Some of the accelerometers have NA values and these are removed.
+```{r, echo=TRUE}
+library(plyr); library(dplyr)
+PmlTrainAccel <- select(PmlTrain, contains("accel"), contains("classe"))
+PmlTrainAccel <- PmlTrainAccel[ , colSums(is.na(PmlTrainAccel)) == 0]
+summary(PmlTrainAccel)
+```
+
+
+### Exploring the data
+```{r, echo=TRUE}
+dim(PmlTrainAccel); names(PmlTrainAccel)
+pie(summary(PmlTrainAccel$classe), main="5 different classes of barbell lifts")
+```
+
+
+### Splitting the data and plotting the predictors
+#### The data are split into a training set and testing set. The 2 data sets are used to build the prediction model and to determine the error rate.
+```{r, echo=TRUE}
+library(caret)
+inTrain <- createDataPartition(y=PmlTrainAccel$classe, p=0.6, list=FALSE)
+training <- PmlTrainAccel[inTrain,]; testing <- PmlTrainAccel[-inTrain,]
+dim(training); dim(testing)
+featurePlot(x=training[, c(-17)], y=training$classe, plot="pairs")
+```
+
+
+### Preprocessing the predictors with Random Forest method (training)
+```{r, echo=TRUE, cache=TRUE}
+library(randomForest); library(ipred); set.seed(12345)
+ModFit <- randomForest(classe ~., data=training, preProcess=c("center","scale")); ModFit
+```
+#### Accuracy is equal to 1-error rate: 100% - 6%. The accuracy of the model with training data set is more than 90%.
+
+
+### Applying the Random Forest method to the testing data set (testing)
+```{r, echo=TRUE, cache=TRUE}
+ModFittest <- randomForest(classe ~ ., data=testing, importance=T, prox=T); ModFittest
+```
+#### Accuracy is equal to 1-error rate: 100% - 8%. The accuracy of the model with testing data set is more than 90%.
+
+
+### Predicting the "classe" with the PmlTest data set (validation)
+```{r, echo=T, cache=TRUE}
+PMLA2 <- predict(ModFit, newdata=PmlTest); PMLA2
+```
+
+
+### Cross validating ModFit1 and ModFit2
+#### The PMLA2 values are used to predict the answers to the 20 questions in the PMLTest data set - there are 20 correct answers out of 20 questions. Indeed, as shown by the Confusion Matrixes, the accuracy of the Random Forest method is more than 90%.
